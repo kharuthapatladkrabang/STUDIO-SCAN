@@ -356,8 +356,8 @@ class GeofenceApp {
     // =================================================================
     
     async fetchStudioListFromSheet() {
-        // 🔴 แก้ไข: ดึงถึงคอลัมน์ G เพื่อเอา URL รูปประกาศเฉพาะ
-        const range = `${this.STUDIO_SHEET_NAME}!A:G`; 
+        // 🔴 แก้ไข: ดึงถึงคอลัมน์ L เพื่อเอา URL รูปประกาศเฉพาะ (G), ข้อความปุ่ม (K) และ ลิงก์ปุ่ม (L)
+        const range = `${this.STUDIO_SHEET_NAME}!A:L`; 
         const url = `https://sheets.googleapis.com/v4/spreadsheets/${this.SHEET_ID}/values/${range}?key=${this.API_KEY}`;
         
         try {
@@ -378,8 +378,13 @@ class GeofenceApp {
                 const checkCondition = row[2];
                 const hideCloseBtn = (row[3] == 1 || row[3] === '1');
                 let countdownSec = parseInt(row[4]);
+                
                 // 🔴 NEW: ดึงลิงก์รูปประกาศจากคอลัมน์ G (Index 6)
                 const studioImageUrl = row[6] ? row[6].toString().trim() : ''; 
+                // 🔴 NEW: ดึงข้อความปุ่มประกาศจากคอลัมน์ K (Index 10)
+                const studioButtonText = row[10] ? row[10].toString().trim() : ''; 
+                // 🔴 NEW: ดึงลิงก์ปุ่มประกาศจากคอลัมน์ L (Index 11)
+                const studioButtonUrl = row[11] ? row[11].toString().trim() : ''; 
                 
                 if (isNaN(countdownSec) || countdownSec < 0) {
                     countdownSec = 0;
@@ -393,8 +398,10 @@ class GeofenceApp {
                         check: requiresGeofence,
                         hideCloseBtn: hideCloseBtn, 
                         countdownSec: countdownSec,
-                        // 🔴 NEW: เพิ่ม URL รูปประกาศเฉพาะ
-                        studioImageUrl: studioImageUrl 
+                        studioImageUrl: studioImageUrl,
+                        // 🔴 NEW: เพิ่มข้อมูลปุ่มเฉพาะ
+                        studioButtonText: studioButtonText, 
+                        studioButtonUrl: studioButtonUrl 
                     };
                 }
             }
@@ -442,6 +449,7 @@ class GeofenceApp {
     }
 
     async fetchAnnouncementConfigFromSheet() {
+        // 🔴 FIX: เปลี่ยน Range ให้ดึง K18 และ L18 ด้วย
         const range = `${this.CONFIG_SHEET_NAME}!H18:L18`; 
         const url = `https://sheets.googleapis.com/v4/spreadsheets/${this.SHEET_ID}/values/${range}?key=${this.API_KEY}`;
         
@@ -455,10 +463,12 @@ class GeofenceApp {
             
             const values = data.values && data.values[0] || [];
             
-            // 🟢 การเปลี่ยนแปลง: ใช้ Full URL ที่ดึงมาจาก Sheet ทันที
+            // H18 (Index 0): Image URL
             const fullImageUrl = values[0] ? values[0].toString().trim() : '';
             
+            // K18 (Index 3): Button Text
             const buttonText = values[3] ? values[3].toString().trim() : '';
+            // L18 (Index 4): Button URL
             const buttonUrl = values[4] ? values[4].toString().trim() : '';
             
             const isValidUrl = buttonUrl.startsWith('http://') || buttonUrl.startsWith('https://');
@@ -547,9 +557,13 @@ class GeofenceApp {
              countdownSec: studioEntry.countdownSec
         };
         
-        // 🔴 NEW: ดึง URL รูปประกาศเฉพาะของ Studio
+        // 🔴 NEW: ดึง URL รูปประกาศเฉพาะ (G)
         const specificImageUrl = studioEntry.studioImageUrl; 
-        
+        // 🔴 NEW: ดึงข้อความปุ่มเฉพาะ (K)
+        const specificButtonText = studioEntry.studioButtonText; 
+        // 🔴 NEW: ดึงลิงก์ปุ่มเฉพาะ (L)
+        const specificButtonUrl = studioEntry.studioButtonUrl; 
+
         this.target.url = studioEntry.url;
         this.isBypassMode = studioEntry.check === false;
 
@@ -562,8 +576,8 @@ class GeofenceApp {
              this.target.dist = this.geofenceConfig.dist;
         }
         
-        // 🔴 ส่ง URL รูปภาพเฉพาะของ Studio เข้าไปใน loadAnnouncement
-        this.loadAnnouncement(action, true, this.announcementControl, specificImageUrl); 
+        // 🔴 ส่งค่าเฉพาะของ Studio ทั้งหมดเข้าใน loadAnnouncement
+        this.loadAnnouncement(action, true, this.announcementControl, specificImageUrl, specificButtonText, specificButtonUrl); 
     }
     
     // 🔴 เมื่อเข้าถึงหน้า Menu สำเร็จ (หลังใส่รหัสผ่าน)
@@ -768,8 +782,9 @@ class GeofenceApp {
         this.authCountdownInterval = setInterval(updateTimer, 1000);
     }
 
-    // 🔴 ปรับปรุง: เพิ่มพารามิเตอร์ studioSpecificImageUrl
-    async loadAnnouncement(action, isInitialLoad = false, control = null, studioSpecificImageUrl = null) {
+    // 🔴 ปรับปรุง: เพิ่มพารามิเตอร์สำหรับข้อความปุ่มและลิงก์ปุ่มเฉพาะของ Studio
+    async loadAnnouncement(action, isInitialLoad = false, control = null, 
+                            studioSpecificImageUrl = null, studioSpecificButtonText = null, studioSpecificButtonUrl = null) {
         
         if (control) {
              this.announcementControl = control;
@@ -810,16 +825,27 @@ class GeofenceApp {
         
         const result = this.announcementConfig;
         
-        // 🔴 NEW LOGIC: ใช้ URL เฉพาะของ Studio ถ้ามี, ถ้าไม่มี ให้ใช้ URL ประกาศรวม (ที่เดิม)
+        // 🔴 NEW LOGIC: จัดการ URL รูปภาพ
         let fullImageUrl = studioSpecificImageUrl;
         if (!fullImageUrl) {
-            fullImageUrl = result.imageUrl; // ดึงจากประกาศรวม (ที่เดิม)
+            fullImageUrl = result.imageUrl; // ดึงจากประกาศรวม (H18)
         }
         
-        const hasImage = fullImageUrl && fullImageUrl.startsWith('http'); // ตรวจสอบว่าเป็น URL ที่ถูกต้องหรือไม่
-        const hasButton = result.buttonText && result.buttonUrl; 
+        // 🔴 NEW LOGIC: จัดการข้อความและลิงก์ปุ่ม
+        let buttonText = studioSpecificButtonText;
+        let buttonUrl = studioSpecificButtonUrl;
         
-        if (!result.hasContent && !hasImage) { // ต้องตรวจสอบ hasImage ด้วย เผื่อ Studio มีแค่รูปภาพแต่ไม่มีปุ่ม/ข้อความใน Config Sheet
+        if (!buttonText || !buttonUrl) {
+            // ถ้า Studio ไม่มีข้อความ/ลิงก์เฉพาะ ให้กลับไปใช้ค่าจากประกาศรวม (K18, L18)
+            buttonText = result.buttonText; 
+            buttonUrl = result.buttonUrl;
+        }
+        
+        const hasImage = fullImageUrl && fullImageUrl.startsWith('http');
+        const isValidUrl = buttonUrl && (buttonUrl.startsWith('http://') || buttonUrl.startsWith('https://'));
+        const hasButton = buttonText && buttonUrl && isValidUrl;
+        
+        if (!hasImage && !hasButton) { 
             this.isAnnouncementActive = false; 
             // ไม่มี Content เลย -> ไปต่อ Flow ถัดไปทันที
             this.startCloseButtonControl(action);
@@ -857,8 +883,8 @@ class GeofenceApp {
         if (hasButton) {
             this.announcementActionArea.style.display = 'block';
             this.announcementActionButton.style.display = 'flex';
-            this.announcementActionButton.querySelector('.button-text').textContent = result.buttonText.trim();
-            this.announcementActionButton.setAttribute('data-url', result.buttonUrl.trim());
+            this.announcementActionButton.querySelector('.button-text').textContent = buttonText.trim();
+            this.announcementActionButton.setAttribute('data-url', buttonUrl.trim());
             this.announcementActionButton.addEventListener('click', this._onAnnouncementButtonClick);
         }
     }
