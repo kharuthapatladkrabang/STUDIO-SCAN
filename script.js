@@ -227,7 +227,7 @@ class GeofenceApp {
                 alert('ไม่สามารถเปิดเมนูแชร์ได้ (โปรดลองคัดลอกลิ้งค์แทน)');
             });
         } else {
-            alert('เบราว์เซอร์ไม่รองรับฟังก์ชันแชร์โดยตรง โปรดใช้ปุ่มคัดลอกลิ้งค์');
+            alert('เบราว์เซอร์ไม่รองรับฟังก์ชันแชร์โดยตรง โปรดใช้ปุ่มคัดลอกลิ้งค์แทน');
         }
     }
 
@@ -1038,7 +1038,8 @@ class GeofenceApp {
              this.updateStatus('error', 'การตั้งค่า Geofence ผิดพลาด', 'ไม่พบพิกัดเป้าหมาย (โปรดตรวจสอบ K1-K3)');
              // 🔴 FIX: ใช้ delay ก่อนแสดงปุ่ม Retry (2 วินาที)
              this.geofenceTimeoutId = setTimeout(() => {
-                 this.retryButton.style.display = 'flex';
+                 // 🔴 ไม่ต้องแสดงตรงนี้ เพราะ updateStatus('error',...) จะจัดการเอง
+                 // this.retryButton.style.display = 'flex';
              }, this.GEOFENCE_STATUS_DELAY_MS);
              return;
         }
@@ -1059,8 +1060,7 @@ class GeofenceApp {
                 );
             } else {
                 this.updateStatus('error', 'เบราว์เซอร์ไม่รองรับ', 'โทรศัพท์ของคุณไม่รองรับ Geolocation หรือไม่ได้เปิด GPS');
-                // 🔴 NEW: แสดงปุ่ม Retry ทันที (ไม่ต้องรอ delay ซ้ำ)
-                this.retryButton.style.display = 'flex';
+                // 🔴 NEW: แสดงปุ่ม Retry ทันที (updateStatus จะจัดการเอง)
             }
             
         }, this.GEOFENCE_STATUS_DELAY_MS);
@@ -1082,15 +1082,15 @@ class GeofenceApp {
                  window.open(this.target.url, '_self'); 
             }, this.GEOFENCE_STATUS_DELAY_MS); 
             
-            // 🛑 ปุ่ม Retry ต้องแสดงทันทีพร้อมหน้าผลลัพธ์ (ตามความต้องการล่าสุด)
-            this.retryButton.style.display = 'flex';
+            // 🛑 ปุ่ม Retry ถูกซ่อนไว้โดย updateStatus('success', ...)
+            // ❌ ลบโค้ดเดิม: this.retryButton.style.display = 'flex';
 
         } else {
             const maxMeters = this.target.dist * 1000;
             this.updateStatus('error', 'เข้าถึงถูกปฏิเสธ', `คุณอยู่ห่าง ${distanceMeters} เมตร (เกิน ${maxMeters} เมตร) โปรดลองใหม่อีกครั้งในพื้นที่ที่กำหนด`);
             
-            // 🛑 ปุ่ม Retry ต้องแสดงทันทีพร้อมหน้าผลลัพธ์ (ตามความต้องการล่าสุด)
-            this.retryButton.style.display = 'flex';
+            // 🛑 ปุ่ม Retry ถูกแสดงโดย updateStatus('error', ...)
+            // ❌ ลบโค้ดเดิม: this.retryButton.style.display = 'flex';
         }
     }
     
@@ -1111,8 +1111,8 @@ class GeofenceApp {
         
         this.updateStatus('error', errorMessage, customMessage);
         
-        // 🛑 ปุ่ม Retry ต้องแสดงทันทีพร้อมหน้าผลลัพธ์ (ตามความต้องการล่าสุด)
-        this.retryButton.style.display = 'flex'; 
+        // 🛑 ปุ่ม Retry ถูกแสดงโดย updateStatus('error', ...)
+        // ❌ ลบโค้ดเดิม: this.retryButton.style.display = 'flex'; 
     }
     
     calculateDistance(lat1, lon1, lat2, lon2) {
@@ -1140,9 +1140,11 @@ class GeofenceApp {
             this.retryButton.style.display = 'none';
         } else if (type === 'error') {
             this.statusIconContainer.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
-            this.retryButton.style.display = 'none'; 
+            // 🔴 แสดงปุ่ม Retry เมื่อ Error
+            this.retryButton.style.display = 'flex';
         } else if (type === 'success') {
             this.statusIconContainer.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>';
+            // 🔴 ซ่อนปุ่ม Retry เมื่อสำเร็จ (ตามความต้องการ)
             this.retryButton.style.display = 'none';
         }
     }
