@@ -356,7 +356,8 @@ class GeofenceApp {
     // =================================================================
     
     async fetchStudioListFromSheet() {
-        const range = `${this.STUDIO_SHEET_NAME}!A:E`;
+        // 🔴 แก้ไข: ดึงถึงคอลัมน์ G เพื่อเอา URL รูปประกาศเฉพาะ
+        const range = `${this.STUDIO_SHEET_NAME}!A:G`; 
         const url = `https://sheets.googleapis.com/v4/spreadsheets/${this.SHEET_ID}/values/${range}?key=${this.API_KEY}`;
         
         try {
@@ -377,6 +378,8 @@ class GeofenceApp {
                 const checkCondition = row[2];
                 const hideCloseBtn = (row[3] == 1 || row[3] === '1');
                 let countdownSec = parseInt(row[4]);
+                // 🔴 NEW: ดึงลิงก์รูปประกาศจากคอลัมน์ G (Index 6)
+                const studioImageUrl = row[6] ? row[6].toString().trim() : ''; 
                 
                 if (isNaN(countdownSec) || countdownSec < 0) {
                     countdownSec = 0;
@@ -389,7 +392,9 @@ class GeofenceApp {
                         url: url,
                         check: requiresGeofence,
                         hideCloseBtn: hideCloseBtn, 
-                        countdownSec: countdownSec 
+                        countdownSec: countdownSec,
+                        // 🔴 NEW: เพิ่ม URL รูปประกาศเฉพาะ
+                        studioImageUrl: studioImageUrl 
                     };
                 }
             }
@@ -542,6 +547,9 @@ class GeofenceApp {
              countdownSec: studioEntry.countdownSec
         };
         
+        // 🔴 NEW: ดึง URL รูปประกาศเฉพาะของ Studio
+        const specificImageUrl = studioEntry.studioImageUrl; 
+        
         this.target.url = studioEntry.url;
         this.isBypassMode = studioEntry.check === false;
 
@@ -554,7 +562,8 @@ class GeofenceApp {
              this.target.dist = this.geofenceConfig.dist;
         }
         
-        this.loadAnnouncement(action, true, this.announcementControl); 
+        // 🔴 ส่ง URL รูปภาพเฉพาะของ Studio เข้าไปใน loadAnnouncement
+        this.loadAnnouncement(action, true, this.announcementControl, specificImageUrl); 
     }
     
     // 🔴 เมื่อเข้าถึงหน้า Menu สำเร็จ (หลังใส่รหัสผ่าน)
@@ -759,7 +768,8 @@ class GeofenceApp {
         this.authCountdownInterval = setInterval(updateTimer, 1000);
     }
 
-    async loadAnnouncement(action, isInitialLoad = false, control = null) {
+    // 🔴 ปรับปรุง: เพิ่มพารามิเตอร์ studioSpecificImageUrl
+    async loadAnnouncement(action, isInitialLoad = false, control = null, studioSpecificImageUrl = null) {
         
         if (control) {
              this.announcementControl = control;
@@ -800,13 +810,16 @@ class GeofenceApp {
         
         const result = this.announcementConfig;
         
-        // 🟢 การเปลี่ยนแปลง: ใช้ Full URL ที่ดึงมาจาก Sheet ทันที
-        const fullImageUrl = result.imageUrl;
+        // 🔴 NEW LOGIC: ใช้ URL เฉพาะของ Studio ถ้ามี, ถ้าไม่มี ให้ใช้ URL ประกาศรวม (ที่เดิม)
+        let fullImageUrl = studioSpecificImageUrl;
+        if (!fullImageUrl) {
+            fullImageUrl = result.imageUrl; // ดึงจากประกาศรวม (ที่เดิม)
+        }
         
         const hasImage = fullImageUrl && fullImageUrl.startsWith('http'); // ตรวจสอบว่าเป็น URL ที่ถูกต้องหรือไม่
         const hasButton = result.buttonText && result.buttonUrl; 
         
-        if (!result.hasContent) {
+        if (!result.hasContent && !hasImage) { // ต้องตรวจสอบ hasImage ด้วย เผื่อ Studio มีแค่รูปภาพแต่ไม่มีปุ่ม/ข้อความใน Config Sheet
             this.isAnnouncementActive = false; 
             // ไม่มี Content เลย -> ไปต่อ Flow ถัดไปทันที
             this.startCloseButtonControl(action);
@@ -993,7 +1006,7 @@ class GeofenceApp {
         }
         
         // 1. แสดงสถานะ Loading ทันที (กำลังตรวจสอบ)
-        this.updateStatus('loading', `กำลังตรวจสอบตำแหน่ง ${this.studioName}...`, 'โปรดอนุญาตการเข้าถึง GPS เพื่อดำเนินการต่อ');
+        this.updateStatus('loading', `กำลังตรวจสอบตำแหน่ง ${this.studioName}...`, 'โปรดอนุญาตการเข้าถึง GPS ของคุณ');
         this.retryButton.style.display = 'none'; 
         
         // --- ขั้นตอนที่ 1: รอ 2 วินาที (Loading Delay) ---
