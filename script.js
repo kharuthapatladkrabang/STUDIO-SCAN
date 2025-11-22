@@ -806,7 +806,7 @@ class GeofenceApp {
             clearInterval(this.countdownInterval);
             this.countdownInterval = null;
         }
-        // 🔴 NEW: เคลียร์ Load Timeout Interval เก่าก่อนเริ่ม
+        // 🔴 NEW: เคลียร์ Load Timeout Interval ด้วย
         if (this.loadTimeoutInterval) {
              clearInterval(this.loadTimeoutInterval);
              this.loadTimeoutInterval = null;
@@ -825,25 +825,35 @@ class GeofenceApp {
         
         const result = this.announcementConfig;
         
-        // 🔴 NEW LOGIC: จัดการ URL รูปภาพ
+        // 🔴 NEW LOGIC: จัดการ URL รูปภาพ (ใช้ G ถ้ามี, ถ้าไม่มี ใช้ H18)
         let fullImageUrl = studioSpecificImageUrl;
         if (!fullImageUrl) {
             fullImageUrl = result.imageUrl; // ดึงจากประกาศรวม (H18)
         }
         
-        // 🔴 NEW LOGIC: จัดการข้อความและลิงก์ปุ่ม
-        let buttonText = studioSpecificButtonText;
-        let buttonUrl = studioSpecificButtonUrl;
-        
-        if (!buttonText || !buttonUrl) {
-            // ถ้า Studio ไม่มีข้อความ/ลิงก์เฉพาะ ให้กลับไปใช้ค่าจากประกาศรวม (K18, L18)
-            buttonText = result.buttonText; 
-            buttonUrl = result.buttonUrl;
+        // 🔴 NEW LOGIC: จัดการข้อความและลิงก์ปุ่ม (ใช้ K, L ของ Studio ถ้ามี *และ* ไม่ใช่ Flow เมนูหลัก)
+        let buttonText = '';
+        let buttonUrl = '';
+
+        if (action === 'main_menu') {
+             // 🟢 กรณีหน้าเมนูหลัก: ใช้ค่าจาก Config Sheet (K18, L18) เสมอ
+             buttonText = result.buttonText;
+             buttonUrl = result.buttonUrl;
+        } else {
+            // 🟢 กรณีหน้า Studio: ใช้ค่า K, L จาก Studio (ต้องมีค่าจึงจะใช้ได้)
+            if (studioSpecificButtonText && studioSpecificButtonUrl) {
+                buttonText = studioSpecificButtonText;
+                buttonUrl = studioSpecificButtonUrl;
+            } else {
+                // ถ้า K หรือ L ใน Studio เป็นค่าว่าง: **ไม่ต้องใส่ปุ่ม** (ตามความต้องการ "ถ้า K L ไม่มีไม่ต้องใส่")
+                buttonText = '';
+                buttonUrl = '';
+            }
         }
         
         const hasImage = fullImageUrl && fullImageUrl.startsWith('http');
         const isValidUrl = buttonUrl && (buttonUrl.startsWith('http://') || buttonUrl.startsWith('https://'));
-        const hasButton = buttonText && buttonUrl && isValidUrl;
+        const hasButton = buttonText && buttonUrl && isValidUrl; // ปุ่มจะแสดงได้เมื่อมีข้อความและ URL ที่ถูกต้องเท่านั้น
         
         if (!hasImage && !hasButton) { 
             this.isAnnouncementActive = false; 
@@ -887,6 +897,8 @@ class GeofenceApp {
             this.announcementActionButton.setAttribute('data-url', buttonUrl.trim());
             this.announcementActionButton.addEventListener('click', this._onAnnouncementButtonClick);
         }
+        
+        // ถ้าไม่มีปุ่ม และไม่มีรูปภาพ: จะถูกจัดการที่บรรทัด ~691
     }
     
     // --- Close Button Control ---
